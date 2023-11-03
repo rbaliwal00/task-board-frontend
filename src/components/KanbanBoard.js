@@ -1,6 +1,9 @@
 import PlusIcon from "../icons/PlusIcon";
 import { useEffect, useMemo, useState } from "react";
 import ColumnContainer from "./ListContainer";
+import { useSelector } from "react-redux";
+import axios from "axios";
+
 import {
   DndContext,
   DragEndEvent,
@@ -14,103 +17,19 @@ import {
 import { SortableContext, arrayMove } from "@dnd-kit/sortable";
 import { createPortal } from "react-dom";
 import TaskCard from "./TaskCard";
+import { API_URL } from "../services/user.service";
+import authHeader from "../services/auth-header";
 
-const defaultCols= [
-  {
-    id: "todo",
-    title: "Todo",
-  },
-  {
-    id: "doing",
-    title: "Work in progress",
-  },
-  {
-    id: "done",
-    title: "Done",
-  },
-];
 
-const defaultTasks = [
-  {
-    id: "1",
-    columnId: "todo",
-    content: "List admin APIs for dashboard",
-  },
-  {
-    id: "2",
-    columnId: "todo",
-    content:
-      "Develop user registration functionality with OTP delivered on SMS after email confirmation and phone number confirmation",
-  },
-  {
-    id: "3",
-    columnId: "doing",
-    content: "Conduct security testing",
-  },
-  {
-    id: "4",
-    columnId: "doing",
-    content: "Analyze competitors",
-  },
-  {
-    id: "5",
-    columnId: "done",
-    content: "Create UI kit documentation",
-  },
-  {
-    id: "6",
-    columnId: "done",
-    content: "Dev meeting",
-  },
-  {
-    id: "7",
-    columnId: "done",
-    content: "Deliver dashboard prototype",
-  },
-  {
-    id: "8",
-    columnId: "todo",
-    content: "Optimize application performance",
-  },
-  {
-    id: "9",
-    columnId: "todo",
-    content: "Implement data validation",
-  },
-  {
-    id: "10",
-    columnId: "todo",
-    content: "Design database schema",
-  },
-  {
-    id: "11",
-    columnId: "todo",
-    content: "Integrate SSL web certificates into workflow",
-  },
-  {
-    id: "12",
-    columnId: "doing",
-    content: "Implement error logging and monitoring",
-  },
-  {
-    id: "13",
-    columnId: "doing",
-    content: "Design and implement responsive UI",
-  },
-];
-
-function KanbanBoard({data}) {
-  console.log(data);
-  const [columns, setColumns] = useState(defaultCols);
-
+function KanbanBoard() {
+   const { user: currentUser } = useSelector((state) => state.auth);
+   const[data, setData] = useState();
+  console.log(data)
+  const [columns, setColumns] = useState(data?.list || null);
   const columnsId = useMemo(() => columns?.map((col) => col.id), [columns]);
-
-  const [tasks, setTasks] = useState(defaultTasks);
-
+  const [tasks, setTasks] = useState([]);
   const [activeColumn, setActiveColumn] = useState(null);
-
   const [activeTask, setActiveTask] = useState(null);
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -119,25 +38,50 @@ function KanbanBoard({data}) {
     })
   );
 
-  // useEffect(() => {
-  //   setColumns(data?.list);
-  //   setTasks(data.)
-  // }, []);
+  const getUserById = async (id) => {
+    try {
+      const res = await axios.get(API_URL + `${id}`, { headers: authHeader() });
+      setData(res.data);
+    } catch (error) {
+      // Handle errors here
+      console.error(error);
+      throw error; // Rethrow the error or handle it as needed
+    }
+  };
+
+  useEffect(() => {
+    getUserById(currentUser.id);
+  }, [tasks]);
+
+
+  useEffect(() => {
+    if (data) {
+      setColumns(data.list);
+      // You can also set your tasks here based on data.tasks if needed
+      let array = [];
+      data.list?.forEach(list => {
+        list.task.forEach(task => {
+          array.push(task);
+        })
+      });
+      console.log(array);
+
+      setTasks(array);
+    }
+  }, [data]);
+
+  console.log(tasks)
+
+  useEffect(() => {
+  }, [columns])
+
+  if (columns === null) {
+    // Display a preloader while data is loading
+    return <div className="preloader">Loading...</div>;
+  }
 
   return (
-    <div
-      className="
-      color-black
-        m-auto
-        flex
-        min-h-screen
-        w-full
-        items-center
-        overflow-x-auto
-        overflow-y-hidden
-        px-[40px]
-    "
-    >
+    <div className="color-black m-auto flex min-h-screen w-full items-center overflow-x-auto overflow-y-hidden px-[40px]">
       <DndContext
         sensors={sensors}
         onDragStart={onDragStart}
@@ -147,39 +91,37 @@ function KanbanBoard({data}) {
         <div className="m-auto flex gap-4">
           <div className="flex gap-4">
             <SortableContext items={columnsId}>
-              {columns?.map((col) => (
+              {columns.map((col) => (
                 <ColumnContainer
                   key={col.id}
                   column={col}
                   deleteColumn={deleteColumn}
                   updateColumn={updateColumn}
-                  createTask={createTask}
+                  // createTask={createTask}
+                  getUserById={getUserById}
                   deleteTask={deleteTask}
                   updateTask={updateTask}
-                  tasks={tasks.filter((task) => task.columnId === col.id)}
+                  tasks={tasks.filter((task) => task.listId === col.id).filter((task) => task.done === false)}
                 />
               ))}
             </SortableContext>
           </div>
           <button
-            onClick={() => {
-              createNewColumn();
-            }}
+            onClick={createNewColumn}
             className="
-      h-[60px]
-      w-[250px]
-      min-w-[250px]
-      cursor-pointer
-      rounded-lg
-      bg-mainBackgroundColor
-      border-2
-      border-columnBackgroundColor
-      p-4
-      ring-rose-500
-      hover:ring-2
-      flex
-      gap-2
-      "
+            h-[60px]
+            w-[250px]
+            min-w-[250px]
+            cursor-pointer
+            rounded-lg
+            bg-mainBackgroundColor
+            border-2
+            border-columnBackgroundColor
+            p-4
+            ring-rose-500
+            hover:ring-2
+            flex gap-2
+            "
           >
             <PlusIcon />
             Add Column
@@ -193,12 +135,10 @@ function KanbanBoard({data}) {
                 column={activeColumn}
                 deleteColumn={deleteColumn}
                 updateColumn={updateColumn}
-                createTask={createTask}
+                // createTask={createTask}
                 deleteTask={deleteTask}
                 updateTask={updateTask}
-                tasks={tasks.filter(
-                  (task) => task.columnId === activeColumn.id
-                )}
+                tasks={tasks.filter((task) => task.columnId === activeColumn.id).filter((task) => task.done === false)}
               />
             )}
             {activeTask && (
@@ -215,15 +155,6 @@ function KanbanBoard({data}) {
     </div>
   );
 
-  function createTask(columnId) {
-    const newTask = {
-      id: generateId(),
-      columnId,
-      content: `Task ${tasks.length + 1}`,
-    };
-
-    setTasks([...tasks, newTask]);
-  }
 
   function deleteTask(id) {
     const newTasks = tasks.filter((task) => task.id !== id);
@@ -239,21 +170,53 @@ function KanbanBoard({data}) {
     setTasks(newTasks);
   }
 
-  function createNewColumn() {
+  async function createNewColumn() {
+  try {
     const columnToAdd = {
       id: generateId(),
       title: `Column ${columns.length + 1}`,
     };
 
+    const res = await axios.post("http://localhost:8080/api/list", {
+      name: `List ${columns.length + 1}`,
+      userId: currentUser.id,
+    });
+
+    // Update the columns state with the new column
     setColumns([...columns, columnToAdd]);
+
+    // Create a new task with the corresponding listId
+    const newTask = {
+      id: generateId(),
+      listId: columnToAdd.id, // Set the listId of the task
+      content: `Task ${tasks.length + 1}`,
+    };
+
+    setTasks([...tasks, newTask]);
+  } catch (error) {
+    console.error("Error creating a new column:", error);
   }
+}
 
-  function deleteColumn(id) {
-    const filteredColumns = columns.filter((col) => col.id !== id);
-    setColumns(filteredColumns);
-
-    const newTasks = tasks.filter((t) => t.columnId !== id);
-    setTasks(newTasks);
+ async function deleteColumn(id) {
+  //  try {
+  //   const filteredColumns = columns.filter((col) => col.id !== id);
+  //   setColumns(filteredColumns);
+  //   // Send a POST request to your API endpoint
+  //   const res = await axios.post("http://localhost:8080/api/list", {
+  //     // Include the data you want to send in the request body
+  //     name: `List ${columns.length + 1}`, // Example data
+  //     userId: currentUser.id, // Example data
+  //   });
+  //   console.log("result : " , res)
+  //   // Update the columns state with the new column
+  //   setColumns([...columns, fil]);
+  // } catch (error) {
+  //   // Handle any errors that occur during the POST request
+  //   console.error("Error creating a new column:", error);
+  // }
+  //   const newTasks = tasks.filter((t) => t.columnId !== id);
+  //   setTasks(newTasks);
   }
 
   function updateColumn(id, title) {
@@ -277,31 +240,49 @@ function KanbanBoard({data}) {
     }
   }
 
-  function onDragEnd(event) {
-    setActiveColumn(null);
-    setActiveTask(null);
+  async function onDragEnd(event) {
+    try {
+      setActiveColumn(null);
+      setActiveTask(null);
 
-    const { active, over } = event;
-    if (!over) return;
+      const { active, over } = event;
+      if (!over) return;
 
-    const activeId = active.id;
-    const overId = over.id;
+      const activeId = active.id;
+      const overId = over.id;
 
-    if (activeId === overId) return;
+      if (activeId === overId) return;
 
-    const isActiveAColumn = active.data.current?.type === "Column";
-    if (!isActiveAColumn) return;
+      const isActiveATask = active.data.current?.type === "Task";
+      if (!isActiveATask) return;
 
-    console.log("DRAG END");
+      const activeTask = active.data.current?.task;
+      const overColumn = columns.find((col) => col.id === overId);
 
-    setColumns((columns) => {
-      const activeColumnIndex = columns.findIndex((col) => col.id === activeId);
+      if (overColumn) {
+        // Update the task's listId when moving to a different column
+        const newTasks = tasks.map((task) => {
+          if (task.id === activeTask.id) {
+            return { ...task, listId: overColumn.id };
+          }
+          return task;
+        });
 
-      const overColumnIndex = columns.findIndex((col) => col.id === overId);
+        const res = await axios.post(`http://localhost:8080/api/task/${activeTask.id}/moved`, {
+      // Include the data you want to send in the request body
+        name: activeTask.name,  // Example data
+        listId: overId,
+        done : activeTask.done,
+      });
+        console.log("result move : " , res)
 
-      return arrayMove(columns, activeColumnIndex, overColumnIndex);
-    });
-  }
+        setTasks(newTasks);
+      }
+    }
+    catch (err) {
+      console.log("error : " , err)
+    }
+}
 
   function onDragOver(event) {
     const { active, over } = event;

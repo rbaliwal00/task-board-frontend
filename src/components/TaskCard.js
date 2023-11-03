@@ -4,8 +4,10 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
+import axios from "axios";
 
 function TaskCard({ task, deleteTask, updateTask }) {
+  console.log(task);
   const [mouseIsOver, setMouseIsOver] = useState(false);
   const [editMode, setEditMode] = useState(true);
 
@@ -35,6 +37,16 @@ function TaskCard({ task, deleteTask, updateTask }) {
     setMouseIsOver(false);
   };
 
+  const markCompleted = async (task) => {
+    console.log("id L " , task.id)
+    const res = await axios.post(`http://localhost:8080/api/task/${task.id}/completed`, {
+      listId : task.listId,
+      name: task.name,
+      done: true,
+      });
+      console.log("result completed : " , res)
+  }
+
   if (isDragging) {
     return (
       <div
@@ -62,7 +74,7 @@ function TaskCard({ task, deleteTask, updateTask }) {
         h-[90%]
         w-full resize-none border-none rounded bg-transparent focus:outline-none
         "
-          value={task.content}
+          value={task.name}
           autoFocus
           placeholder="Task content here"
           onBlur={toggleEditMode}
@@ -92,9 +104,9 @@ function TaskCard({ task, deleteTask, updateTask }) {
       //   setMouseIsOver(false);
       // }}
     >
-      <Checkbox defaultChecked />
+      <Checkbox onClick={() => markCompleted(task)} />
       <p className="my-auto text-sm h-[90%] w-full overflow-y-auto overflow-x-hidden whitespace-pre-wrap">
-        {task.content}
+        {task.name}
       </p>
     </div>
   );
